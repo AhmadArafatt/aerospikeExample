@@ -1,48 +1,60 @@
 package com.example.aerospikeexample.service;
 
+import com.aerospike.client.*;
+import com.aerospike.client.policy.WritePolicy;
 import com.example.aerospikeexample.model.User;
-import com.example.aerospikeexample.repository.UserRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
-
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UserService {
+    String s = "User doesnt found";
+    AerospikeClient client = new AerospikeClient("172.28.128.3", 3000);
+    WritePolicy writePolicy = new WritePolicy();
 
-        private UserRepository userRepository;
 
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public Map<String, Object> findAUser(String userKey) {
+        Key key = new Key("test", "demo", userKey);
+        Record record = client.get(writePolicy, key);
+        return record.bins;
     }
 
-    public List<User> findAll(){
-            return (List<User>) userRepository.findAll();
-        }
-
-
-    public void create(User user) {
-
+    public List<Map<String, Object>> findAll() {
+        List<Map<String, Object>> l = new ArrayList<>();
+        client.scanAll(null, "test", "demo", (key, record) -> l.add(client.get(writePolicy, key).bins));
+        return l;
     }
 
-    public void removeUserById(long id) {
-            userRepository.deleteById((int) id);
-    }
-
-    public String create(long id, String name, long salary) {
-        User user=new User();
-        user.setId(id);
-        user.setName(name);
-        user.setSalary(salary);
-
-        userRepository.save(user);
+    public String create(User user, String userKey) {
+        Key key = new Key("test", "demo", userKey);
+        Bin NAME = new Bin("name", user.name);
+        Bin SALARY = new Bin("salary", user.salary);
+        client.put(writePolicy, key, NAME, SALARY);
         return "User has been Added";
     }
 
-    public void create22(User user) {
-    userRepository.save(user);
+    public String delete(String userKey) {
+        Key key = new Key("test", "demo",userKey);
+        if(client.delete(writePolicy, key))
+        s = "User has been deleted";
+        else
+            s="User doesnt found";
+        return s;
+    }
+
+    public String update(String userKey, String Salary) {
+        Key key = new Key("test", "demo", userKey);
+        Bin SALARY = new Bin("salary", Salary);
+        if(client.exists(writePolicy,key)){
+            client.put(writePolicy, key, SALARY);
+            s = "Salary has been updated";
+        }
+        else{
+            s="User does not found";
+        }
+        return s;
     }
 }
 
